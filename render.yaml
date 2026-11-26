@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: eventflow-os-api
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build:shared && npm run build:server
+    startCommand: npm --workspace=server run start
+    healthCheckPath: /api/v1/system/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: USE_IN_MEMORY_MONGO
+        value: "false"
+      - key: STORAGE_PROVIDER_MODE
+        value: mongodb
+      - key: MONGODB_DB_NAME
+        value: eventflow_os
+      - key: MONGODB_URI
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: QR_SIGNING_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        value: admin@eventflowos.in
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: STAFF_EMAIL
+        value: staff@eventflowos.in
+      - key: STAFF_PASSWORD
+        sync: false
