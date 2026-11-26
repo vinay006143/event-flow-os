@@ -1,0 +1,9 @@
+{
+  "name": "EventFlow OS Scanner & Passes",
+  "short_name": "EventFlow OS",
+  "start_url": "/staff/scanner",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#b45309",
+  "description": "Mobile-first gate scanner PWA and attendee pass system for EventFlow OS"
+}
