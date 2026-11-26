@@ -3,8 +3,8 @@ services:
     name: eventflow-os-api
     runtime: node
     plan: free
-    buildCommand: npm install && npm run build:shared && npm run build:server
-    startCommand: npm --workspace=server run start
+    buildCommand: npm install --include=dev && npm run build:shared && npm run build:server
+    startCommand: node server/dist/server.js
     healthCheckPath: /api/v1/system/health
     envVars:
       - key: NODE_ENV
