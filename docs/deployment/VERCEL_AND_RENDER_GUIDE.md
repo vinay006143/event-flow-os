@@ -21,7 +21,7 @@ Using `vercel.json`'s `/api/:path*` rewrite keeps browser API requests on the sa
 3. Configure service settings (leave **Root Directory** blank `.` so npm workspaces resolve `@eventflow/shared`):
    - **Runtime**: `Node` (Node 20+)
    - **Build Command**: `npm install --include=dev && npm run build:shared && npm run build:server`
-   - **Start Command**: `node server/dist/server.js`
+   - **Start Command**: `npm start`
    - **Health Check Path**: `/api/v1/system/health`
 4. Add **Environment Variables** in Render:
    - `NODE_ENV=production`
