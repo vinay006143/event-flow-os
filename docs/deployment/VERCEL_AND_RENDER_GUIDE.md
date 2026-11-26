@@ -45,14 +45,13 @@ Using `vercel.json`'s `/api/:path*` rewrite keeps browser API requests on the sa
 ---
 
 ## Step 3: Update `vercel.json` & Deploy Frontend on Vercel
-1. Open `vercel.json` at the repo root and replace `https://eventflow-os-api.onrender.com/api/:path*` with your real Render service URL:
+1. Check [vercel.json](../../vercel.json) points `/api/:path*` to `https://event-flow-os.onrender.com/api/:path*`:
    ```json
    {
      "source": "/api/:path*",
-     "destination": "https://<your-render-service>.onrender.com/api/:path*"
+     "destination": "https://event-flow-os.onrender.com/api/:path*"
    }
    ```
-   Commit & push that URL update.
 2. In **Vercel Dashboard → Add New → Project**, import the GitHub repo:
    - **Framework Preset**: `Other` (or Vite — `vercel.json` overrides build & output)
    - **Root Directory**: `.` (repo root, so workspaces build `@eventflow/shared` + `client`)

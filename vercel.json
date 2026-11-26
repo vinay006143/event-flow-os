@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://eventflow-os-api.onrender.com/api/:path*"
+      "destination": "https://event-flow-os.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",
