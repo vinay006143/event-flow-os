@@ -1,39 +1,42 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { QrCode, ShieldAlert } from 'lucide-react';
+import { Lock, QrCode, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../../../providers/AuthProvider';
 import { Button, Card, Input } from '../../../components/ui/primitives';
-
-const STAFF_SAVED_KEY = 'efo_saved_staff_login';
-
-function loadSavedStaffDetails(): { email: string; deviceCode: string } {
-  try {
-    const raw = localStorage.getItem(STAFF_SAVED_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as { email?: string; deviceCode?: string };
-      return {
-        email: String(parsed.email || ''),
-        deviceCode: String(parsed.deviceCode || localStorage.getItem('efo_device_code') || 'SCAN-GATEA-01'),
-      };
-    }
-  } catch {
-    // ignore parse error
-  }
-  return { email: '', deviceCode: localStorage.getItem('efo_device_code') || 'SCAN-GATEA-01' };
-}
+import {
+  clearSavedCredentials,
+  CREDENTIAL_VALIDITY_DAYS,
+  loadEncryptedCredentials,
+} from '../../../lib/credentialVault';
 
 export function StaffLoginPage() {
-  const { user, login } = useAuth();
+  const { user, loading: authLoading, login } = useAuth();
   const navigate = useNavigate();
-  const saved = loadSavedStaffDetails();
-  const [email, setEmail] = useState(saved.email);
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [deviceCode, setDeviceCode] = useState(saved.deviceCode);
+  const [deviceCode, setDeviceCode] = useState(
+    () => localStorage.getItem('efo_device_code') || 'SCAN-GATEA-01',
+  );
   const [rememberDevice, setRememberDevice] = useState(true);
+  const [savedUntil, setSavedUntil] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
 
-  if (user && user.role === 'staff') {
+  useEffect(() => {
+    let active = true;
+    loadEncryptedCredentials('staff').then((vault) => {
+      if (!active || !vault) return;
+      setEmail(vault.email || '');
+      setPassword(vault.password || '');
+      if (vault.deviceCode) setDeviceCode(vault.deviceCode);
+      setSavedUntil(vault.expiresAt);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (!authLoading && user && user.role === 'staff') {
     return <Navigate to="/staff/scanner" replace />;
   }
 
@@ -42,21 +45,8 @@ export function StaffLoginPage() {
     setLoading(true);
     try {
       const cleanDevice = deviceCode.trim().toUpperCase();
-      const signedIn = await login(email, password, 'staff', cleanDevice || undefined);
+      await login(email, password, 'staff', cleanDevice || undefined, rememberDevice);
       if (cleanDevice) localStorage.setItem('efo_device_code', cleanDevice);
-      if (rememberDevice) {
-        localStorage.setItem(
-          STAFF_SAVED_KEY,
-          JSON.stringify({
-            email: signedIn.email,
-            name: signedIn.name,
-            deviceCode: cleanDevice || undefined,
-            savedAt: new Date().toISOString(),
-          }),
-        );
-      } else {
-        localStorage.removeItem(STAFF_SAVED_KEY);
-      }
       toast.success('Signed in to Staff Scanner');
       navigate('/staff/scanner');
     } catch (err) {
@@ -67,10 +57,11 @@ export function StaffLoginPage() {
   };
 
   const clearSaved = () => {
-    localStorage.removeItem(STAFF_SAVED_KEY);
+    clearSavedCredentials('staff');
     setEmail('');
     setPassword('');
-    toast.success('Saved staff login cleared from this device');
+    setSavedUntil(null);
+    toast.success('Encrypted staff login cleared from this device');
   };
 
   return (
@@ -123,20 +114,28 @@ export function StaffLoginPage() {
               className="border-slate-700 bg-slate-800 font-mono text-white placeholder:text-slate-500"
             />
           </div>
-          <div className="flex items-center justify-between text-xs text-slate-300">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={rememberDevice}
-                onChange={(e) => setRememberDevice(e.target.checked)}
-                className="rounded border-slate-600 bg-slate-800 text-amber-500"
-              />
-              Remember details on device
-            </label>
-            {Boolean(email) && (
-              <button type="button" onClick={clearSaved} className="text-amber-400 hover:underline">
-                Clear saved
-              </button>
+          <div className="space-y-1.5 text-xs text-slate-300">
+            <div className="flex items-center justify-between gap-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={rememberDevice}
+                  onChange={(e) => setRememberDevice(e.target.checked)}
+                  className="rounded border-slate-600 bg-slate-800 text-amber-500"
+                />
+                Save login &amp; encrypted password ({CREDENTIAL_VALIDITY_DAYS} days)
+              </label>
+              {(Boolean(email) || savedUntil) && (
+                <button type="button" onClick={clearSaved} className="shrink-0 text-amber-400 hover:underline">
+                  Clear saved
+                </button>
+              )}
+            </div>
+            {savedUntil && (
+              <p className="flex items-center gap-1 text-[11px] text-emerald-400">
+                <Lock className="h-3 w-3" />
+                Encrypted credentials saved locally until {new Date(savedUntil).toLocaleDateString('en-IN')}
+              </p>
             )}
           </div>
           <Button type="submit" className="w-full" size="lg" disabled={loading}>

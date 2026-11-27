@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AlertOctagon, Download, Image as ImageIcon, KeyRound, Mail, MessageSquare, Paperclip, Pencil, Plus, RefreshCw, Send, ShieldAlert, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../../../services/api';
+import { clearSavedCredentials } from '../../../lib/credentialVault';
 import { formatCurrency } from '../../../lib/utils';
 import { Button, Card, Input, Select, StatusBadge } from '../../../components/ui/primitives';
 
@@ -1840,7 +1841,7 @@ export function AdminSystemSettingsPage() {
     setChangingPassword(true);
     try {
       await api.post('/auth/change-password', { currentPassword, newPassword });
-      localStorage.removeItem('ef_admin_saved_login');
+      clearSavedCredentials('admin');
       toast.success('Admin password changed! Please sign in with your new password.');
       window.location.href = '/admin/login';
     } catch (err) {

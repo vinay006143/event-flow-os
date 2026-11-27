@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getPortalToken } from '../lib/credentialVault';
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
@@ -6,6 +7,16 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+});
+
+api.interceptors.request.use((config) => {
+  if (!config.headers.Authorization) {
+    const token = getPortalToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
 });
 
 api.interceptors.response.use(
