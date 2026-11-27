@@ -51,37 +51,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const activeToken = getPortalToken(portal);
-    const hasCookieOrToken = Boolean(activeToken) || (vault && !vault.autoLoginPaused);
+    const hasSessionHint = typeof localStorage !== 'undefined' && localStorage.getItem(`efo_auth_hint_${portal}`) === '1';
+    const hasCookieOrToken = Boolean(activeToken) || (Boolean(vault) && !vault?.autoLoginPaused) || hasSessionHint;
 
     if (!detectPortalFromPath() && !activeToken) {
       setLoading(false);
       return;
     }
 
-    try {
-      const res = await api.get('/auth/me', activeToken ? { headers: { Authorization: `Bearer ${activeToken}` } } : undefined);
-      const u = res.data.data.user as AuthUser;
-      if (u.role === portal || !detectPortalFromPath()) {
-        setUser(u);
-        localStorage.setItem('efo_device_profile', JSON.stringify({ ...u, lastVerifiedAt: new Date().toISOString() }));
-        if (vault && !vault.autoLoginPaused) {
-          await saveEncryptedCredentials(portal, { ...vault, user: u });
+    // Skip unauthenticated /auth/me probe when no token, no active vault, and no session hint exists
+    if (!activeToken && (!vault || vault.autoLoginPaused) && !hasSessionHint) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
+    if (activeToken || hasSessionHint) {
+      try {
+        const res = await api.get('/auth/me', activeToken ? { headers: { Authorization: `Bearer ${activeToken}` } } : undefined);
+        const u = res.data.data.user as AuthUser;
+        if (u.role === portal || !detectPortalFromPath()) {
+          setUser(u);
+          localStorage.setItem('efo_device_profile', JSON.stringify({ ...u, lastVerifiedAt: new Date().toISOString() }));
+          if (vault && !vault.autoLoginPaused) {
+            await saveEncryptedCredentials(portal, { ...vault, user: u });
+          }
+          setLoading(false);
+          return;
         }
-        setLoading(false);
-        return;
-      }
-    } catch (meErr) {
-      const status = (meErr as { status?: number })?.status;
-      // Network error or cold-starting Render backend — preserve valid 20-day cached user session
-      if ((!status || status >= 500) && vault?.user && !vault.autoLoginPaused && hasCookieOrToken) {
-        setUser(vault.user);
-        setLoading(false);
-        return;
+      } catch (meErr) {
+        const status = (meErr as { status?: number })?.status;
+        // Network error or cold-starting Render backend — preserve valid 20-day cached user session
+        if ((!status || status >= 500) && vault?.user && !vault.autoLoginPaused && hasCookieOrToken) {
+          setUser(vault.user);
+          setLoading(false);
+          return;
+        }
       }
     }
 
     // Try refresh token (cookie or decrypted vault refreshToken)
-    if (!vault?.autoLoginPaused) {
+    if (!vault?.autoLoginPaused && (vault?.refreshToken || hasSessionHint)) {
       try {
         const refreshed = await api.post('/auth/refresh', vault?.refreshToken ? { refreshToken: vault.refreshToken } : {});
         const u = refreshed.data.data.user as AuthUser;
@@ -120,6 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const newAccess = loginRes.data.data.accessToken as string | undefined;
         const newRefresh = loginRes.data.data.refreshToken as string | undefined;
         setPortalToken(portal, newAccess);
+        localStorage.setItem(`efo_auth_hint_${portal}`, '1');
         setUser(u);
         await saveEncryptedCredentials(portal, {
           ...vault,
@@ -142,6 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    localStorage.removeItem(`efo_auth_hint_${portal}`);
     setUser(null);
     localStorage.removeItem('efo_device_profile');
     setLoading(false);
@@ -165,6 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const refreshToken = res.data.data.refreshToken as string | undefined;
 
     setPortalToken(portal, accessToken);
+    localStorage.setItem(`efo_auth_hint_${portal}`, '1');
     setUser(u);
     localStorage.setItem(
       'efo_device_profile',
@@ -199,6 +212,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // ignore logout transport error
     } finally {
       setPortalToken(portal, null);
+      localStorage.removeItem(`efo_auth_hint_${portal}`);
       localStorage.removeItem('efo_device_profile');
       if (vault) {
         // Keep encrypted email & password saved for 20 days for convenience, but pause auto-login until explicit sign-in
